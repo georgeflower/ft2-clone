@@ -360,6 +360,7 @@
     <ClCompile Include="..\..\src\modloaders\ft2_load_stm.c" />
     <ClCompile Include="..\..\src\modloaders\ft2_load_bem.c" />
     <ClCompile Include="..\..\src\modloaders\ft2_load_xm.c" />
+    <ClCompile Include="..\..\src\modloaders\ft2_load_sndh.c" />
     <ClCompile Include="..\..\src\rtmidi\RtMidi.cpp">
       <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Sync</ExceptionHandling>
       <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Sync</ExceptionHandling>

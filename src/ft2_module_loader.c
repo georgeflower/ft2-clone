@@ -37,6 +37,7 @@ bool loadS3M(FILE *f, uint32_t filesize);
 bool loadSTK(FILE *f, uint32_t filesize);
 bool loadSTM(FILE *f, uint32_t filesize);
 bool loadXM(FILE *f, uint32_t filesize);
+bool loadSNDH(FILE *f, uint32_t filesize);
 
 enum
 {
@@ -48,14 +49,15 @@ enum
 	FORMAT_STM = 5,
 	FORMAT_DIGI = 6,
 	FORMAT_BEM = 7,
-	FORMAT_IT = 8
+	FORMAT_IT = 8,
+	FORMAT_SNDH = 9
 };
 
 // file extensions accepted by Disk Op. in module mode
 char *supportedModExtensions[] =
 {
 	"xm", "ft", "nst", "stk", "mod", "s3m", "stm", "fst",
-	"digi", "bem", "it",
+	"digi", "bem", "it", "sndh",
 
 	// IMPORTANT: Remember comma after last entry above
 	"END_OF_LIST" // do NOT move, remove or edit this line!
@@ -79,7 +81,7 @@ static void freeTmpModule(void);
 // Crude module detection routine. These aren't always accurate detections!
 static int8_t detectModule(FILE *f)
 {
-	uint8_t D[256], I[4];
+	uint8_t D[512], I[4];
 
 	fseek(f, 0, SEEK_END);
 	uint32_t fileLength = (uint32_t)ftell(f);
@@ -149,6 +151,17 @@ static int8_t detectModule(FILE *f)
 	if (!memcmp("Extended Module: ", &D[0x00], 17))
 		return FORMAT_XM;
 
+	// SNDH (Atari ST YM2149 chip music)
+	// "SNDH" magic appears within the first 512 bytes (typically at offset 12)
+	{
+		const uint32_t searchLimit = (fileLength < 512) ? fileLength : 512;
+		for (uint32_t i = 0; i + 4 <= searchLimit; i++)
+		{
+			if (D[i] == 'S' && D[i+1] == 'N' && D[i+2] == 'D' && D[i+3] == 'H')
+				return FORMAT_SNDH;
+		}
+	}
+
 	/* Lastly, we assume that the file is either a 15-sample STK or an unsupported file.
 	** Let's assume it's an STK and do some sanity checks. If they fail, we have an
 	** unsupported file.
@@ -206,6 +219,7 @@ static bool doLoadMusic(bool externalThreadFlag)
 		case FORMAT_DIGI: wasLoaded = loadDIGI(f, filesize); break;
 		case FORMAT_BEM: wasLoaded = loadBEM(f, filesize); break;
 		case FORMAT_IT: wasLoaded = loadIT(f, filesize); break;
+		case FORMAT_SNDH: wasLoaded = loadSNDH(f, filesize); break;
 
 		default:
 			loaderMsgBox("This file is not a supported module!");
