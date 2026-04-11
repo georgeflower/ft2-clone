@@ -22,9 +22,11 @@
 #include "ft2_bmp.h"
 #include "ft2_structs.h"
 #include "ft2_bmp.h"
+#include "ft2_psg_instr_ed.h"
+#include "ft2_atari_mode.h"
+#include "ft2_atari_replayer.h"
 
 #ifdef _MSC_VER
-#pragma pack(push)
 #pragma pack(1)
 #endif
 typedef struct patHdr_t
@@ -230,6 +232,25 @@ static int32_t copyInstrThread(void *ptr)
 
 void copyInstr(void) // dstInstr = srcInstr
 {
+	if (editor.atariMode)
+	{
+		atariReplayer_t *ar = atariMode_getReplayer();
+		if (ar != NULL)
+		{
+			int src = (int)editor.srcInstr - 1;
+			int dst = (int)editor.curInstr - 1;
+			if (src >= 0 && src < MAX_PSG_INSTRUMENTS &&
+			    dst >= 0 && dst < MAX_PSG_INSTRUMENTS &&
+			    src != dst)
+			{
+				ar->instruments[dst] = ar->instruments[src];
+				updatePsgInstrEditor();
+				setSongModifiedFlag();
+			}
+		}
+		return;
+	}
+
 	if (editor.curInstr == 0 || editor.srcInstr == editor.curInstr)
 		return;
 
@@ -246,6 +267,27 @@ void copyInstr(void) // dstInstr = srcInstr
 
 void xchgInstr(void) // dstInstr <-> srcInstr
 {
+	if (editor.atariMode)
+	{
+		atariReplayer_t *ar = atariMode_getReplayer();
+		if (ar != NULL)
+		{
+			int a = (int)editor.srcInstr - 1;
+			int b = (int)editor.curInstr - 1;
+			if (a >= 0 && a < MAX_PSG_INSTRUMENTS &&
+			    b >= 0 && b < MAX_PSG_INSTRUMENTS &&
+			    a != b)
+			{
+				psgInstrument_t tmp = ar->instruments[a];
+				ar->instruments[a]  = ar->instruments[b];
+				ar->instruments[b]  = tmp;
+				updatePsgInstrEditor();
+				setSongModifiedFlag();
+			}
+		}
+		return;
+	}
+
 	if (editor.curInstr == 0 || editor.srcInstr == editor.curInstr)
 		return;
 
@@ -407,6 +449,10 @@ void updateNewInstrument(void)
 
 	if (ui.advEditShown)
 		updateAdvEdit();
+
+	// PSG branch: when Atari mode is active and the PSG editor is shown, refresh it too
+	if (editor.atariMode && ui.atariExportShown)
+		updatePsgInstrEditor();
 }
 
 static void drawVolEnvSus(void)
@@ -2093,6 +2139,9 @@ void handleInstEditorRedrawing(void)
 
 void hideInstEditor(void)
 {
+	if (ui.atariExportShown)
+		hidePsgInstrEditor();
+
 	ui.instEditorShown = false;
 
 	hideScrollBar(SB_INST_VOL);
@@ -2268,6 +2317,12 @@ void updateInstEditor(void)
 
 void showInstEditor(void)
 {
+	if (editor.atariMode)
+	{
+		showPsgInstrEditor();
+		return;
+	}
+
 	if (ui.extendedPatternEditor) exitPatternEditorExtended();
 	if (ui.sampleEditorShown) hideSampleEditor();
 	if (ui.sampleEditorExtShown) hideSampleEditorExt();
@@ -3080,6 +3135,23 @@ saveError:
 
 void saveInstr(UNICHAR *filenameU, int16_t insNum)
 {
+	if (editor.atariMode)
+	{
+		const psgInstrument_t *psi = getCurPsgInstr();
+		if (psi == NULL) return;
+#ifdef _WIN32
+		char *pathC = unicharToCp850(filenameU, false);
+		bool ok = (pathC != NULL) && savePsgInstr(pathC, psi);
+		free(pathC);
+#else
+		bool ok = savePsgInstr(filenameU, psi);
+#endif
+		if (!ok)
+			okBox(0, "System message", "Failed to save PSG instrument.", NULL);
+		editor.diskOpReadDir = true;
+		return;
+	}
+
 	if (insNum == 0)
 		return;
 
@@ -3488,6 +3560,16 @@ loadDone:
 
 bool fileIsInstr(UNICHAR *filenameU)
 {
+	if (editor.atariMode)
+	{
+		char magic[4];
+		FILE *f2 = UNICHAR_FOPEN(filenameU, "rb");
+		if (f2 == NULL) return false;
+		size_t n = fread(magic, 1, 4, f2);
+		fclose(f2);
+		return (n == 4 && memcmp(magic, "PSGI", 4) == 0);
+	}
+
 	FILE *f = UNICHAR_FOPEN(filenameU, "rb");
 	if (f == NULL)
 		return false;
@@ -3507,6 +3589,36 @@ void loadInstr(UNICHAR *filenameU)
 	if (editor.curInstr == 0)
 	{
 		okBox(0, "System message", "The zero-instrument cannot hold intrument data.", NULL);
+		return;
+	}
+
+	if (editor.atariMode)
+	{
+		psgInstrument_t *psi = getCurPsgInstr();
+		if (psi == NULL) return;
+		// fileIsInstr already checks PSGI magic when atariMode is set
+		if (!fileIsInstr(filenameU))
+		{
+			okBox(0, "System message", "Not a PSG instrument file.", NULL);
+			return;
+		}
+		// On non-Windows UNICHAR is char, so we can use it directly.
+		// On Windows UNICHAR is wchar_t; loadPsgInstr takes char* so we
+		// need a conversion.  Use the existing unicharToCp850 helper to
+		// produce a best-effort narrow path (same approach as diskop).
+#ifdef _WIN32
+		char *pathC = unicharToCp850(filenameU, false);
+		bool ok = (pathC != NULL) && loadPsgInstr(pathC, psi);
+		free(pathC);
+#else
+		bool ok = loadPsgInstr(filenameU, psi);
+#endif
+		if (!ok)
+			okBox(0, "System message", "Failed to load PSG instrument.", NULL);
+		else
+			setSongModifiedFlag();
+		updatePsgInstrEditor();
+		editor.diskOpReadDir = true;
 		return;
 	}
 

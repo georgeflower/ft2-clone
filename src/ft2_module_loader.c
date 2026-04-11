@@ -26,6 +26,7 @@
 #include "ft2_video.h"
 #include "ft2_structs.h"
 #include "ft2_sysreqs.h"
+#include "ft2_psg_instr_ed.h"
 
 bool detectBEM(FILE *f);
 bool loadBEM(FILE *f, uint32_t filesize);
@@ -542,6 +543,10 @@ static void setupLoadedModule(void)
 		drawPiano(NULL); // redraw piano now (since if playing = wait for next tick update)
 
 	removeSongModifiedFlag();
+
+	// Load PSG instrument bank sidecar if it exists
+	if (editor.atariMode)
+		loadPsgBankIfPresent(editor.tmpFilenameU);
 
 	moduleFailedToLoad = false;
 	moduleLoaded = false;

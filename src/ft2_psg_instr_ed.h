@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <SDL2/SDL.h>
 #include "ft2_atari_replayer.h"
+#include "ft2_unicode.h"
 
 // Show/hide/draw the PSG instrument editor
 void showPsgInstrEditor(void);
@@ -49,3 +50,11 @@ bool loadPsgInstr(const char *path, psgInstrument_t *ins);
 // Returns pointer to the PSG instrument currently being edited
 // (indexed by editor.curInstr, 1-based). Returns NULL if not available.
 psgInstrument_t *getCurPsgInstr(void);
+
+// Fill *ins with sensible defaults for a new PSG instrument.
+void psgInstrDefault(psgInstrument_t *ins);
+
+// Save / load the entire PSG instrument bank as a sidecar file next to the
+// given XM path (extension replaced with .psgibank).
+bool savePsgBank(UNICHAR *xmPathU);
+void loadPsgBankIfPresent(UNICHAR *xmPathU);
