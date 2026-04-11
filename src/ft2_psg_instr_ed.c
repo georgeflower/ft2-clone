@@ -532,9 +532,7 @@ void drawPsgInstrEditor(void)
 	if (psgEdCursor == 6)
 	{
 		// Name-editing mode: show with blinking cursor indicator
-		int nlen = (int)strlen(ins->name);
 		snprintf(nameLine, sizeof (nameLine), "Name: %.22s_", ins->name);
-		(void)nlen;
 		textOutShadow(PSG_ED_X + 4, PSG_ED_Y + PSG_ROW1, PAL_BLCKTXT, PAL_BLCKMRK, nameLine);
 	}
 	else
