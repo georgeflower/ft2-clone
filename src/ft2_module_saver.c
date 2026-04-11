@@ -19,6 +19,7 @@
 #include "ft2_sndh_export.h"
 #include "ft2_unicode.h"
 #include "ft2_diskop.h"
+#include "ft2_psg_instr_ed.h"
 
 static int8_t smpChunkBuf[1024];
 static uint8_t packedPattData[65536], modPattData[64*32*4];
@@ -281,6 +282,10 @@ bool saveXM(UNICHAR *filenameU)
 	removeSongModifiedFlag();
 
 	fclose(f);
+
+	// Save PSG instrument bank sidecar when in Atari mode
+	if (editor.atariMode)
+		savePsgBank(filenameU);
 
 	editor.diskOpReadDir = true; // force diskop re-read
 
